@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking Widget</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            margin: 0;
+            padding: 24px;
+        }
+
+        .booking-card {
+            max-width: 420px;
+            margin: auto;
+            padding: 28px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #3866a3;
+        }
+
+        label {
+            display: block;
+            margin-top: 16px;
+            margin-bottom: 6px;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        button {
+            margin-top: 22px;
+            background: #3866a3;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        #message {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="booking-card">
+        <h2 id="business-name">Loading...</h2>
+
+        <p>Book your appointment below.</p>
+
+        <form id="booking-form">
+
+            <label for="service">Select a service</label>
+            <select id="service" required>
+                <option value="">Loading services...</option>
+            </select>
+
+            <label for="customer-name">Your name</label>
+            <input id="customer-name" type="text" required>
+
+            <label for="phone">Phone number</label>
+            <input id="phone" type="tel" required>
+
+            <label for="appointment-date">Appointment date</label>
+            <input id="appointment-date" type="date" required>
+
+            <label for="appointment-time">Appointment time</label>
+            <input id="appointment-time" type="time" required>
+
+            <button id="submit-button" type="submit">
+                Continue
+            </button>
+
+            <p id="message"></p>
+
+        </form>
+    </div>
+
+    <script>
+        // Get business identifier from URL
+        const pathParts = window.location.pathname.split("/");
+        const siteHash = pathParts[pathParts.length - 1];
+
+        // Load business information and services
+        async function loadWidget() {
+            try {
+                const response = await fetch(`/api/widget/${siteHash}`);
+
+                if (!response.ok) {
+                    throw new Error("Business not found");
+                }
+
+                const data = await response.json();
+
+                document.getElementById("business-name").textContent =
+                    data.business_name;
+
+                const serviceSelect = document.getElementById("service");
+
+                serviceSelect.innerHTML =
+                    '<option value="">Select a service</option>';
+
+                data.services.forEach(service => {
+                    const option = document.createElement("option");
+
+                    option.value = service.id;
+                    option.textContent = service.name;
+
+                    serviceSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                document.getElementById("business-name").textContent =
+                    "Unable to load booking widget.";
+
+                console.error(error);
+            }
+        }
+
+        loadWidget();
+
+        // Submit booking
+        document.getElementById("booking-form").addEventListener(
+            "submit",
+            async function(event) {
+                event.preventDefault();
+
+                const button = document.getElementById("submit-button");
+                const message = document.getElementById("message");
+
+                button.disabled = true;
+                button.textContent = "Submitting...";
+                message.textContent = "";
+
+                const bookingData = {
+                    site_hash: siteHash,
+                    service_id: Number(document.getElementById("service").value),
+                    customer_name: document.getElementById("customer-name").value,
+                    phone: document.getElementById("phone").value,
+                    appointment_date: document.getElementById("appointment-date").value,
+                    appointment_time: document.getElementById("appointment-time").value
+                };
+
+                try {
+                    const response = await fetch("/api/bookings", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(bookingData)
+                    });
+
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(result.detail || "Booking failed");
+                    }
+
+                    message.style.color = "green";
+                    message.textContent =
+                        `Booking submitted successfully! Booking ID: ${result.booking_id}`;
+
+                    document.getElementById("booking-form").reset();
+
+                } catch (error) {
+                    message.style.color = "red";
+                    message.textContent = error.message;
+
+                } finally {
+                    button.disabled = false;
+                    button.textContent = "Continue";
+                }
+            }
+        );
+    </script>
+
+</body>
+</html>
